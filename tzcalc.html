@@ -1,0 +1,111 @@
+<html>
+	<head>
+		<title>micolous' body clock calculator</title>
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
+		
+		<script type="text/javascript" src="sprintf-0.7-beta1.js"></script>
+		
+		<script type="text/javascript">
+		
+			// define constants
+			// week lengths are the same in 28-hour anyway (24/7 vs 28/6)
+			// = 24 * 7 * 60 * 60 * 1000 = 28 * 6 * 60 * 60 * 1000
+			// we define it like this in case you want to change it to work with
+			// something else...
+			var WEEK_LENGTH = 604800000;
+			
+			// offset in milliseconds so that we line up.
+			// this is a number between 0 and 604800000.
+			var WEEK_OFFSET = 437400000;
+			
+			// days of the week in 28-hour weeks.
+			// "I could never get the hang of Thursdays."
+			var DAYS28 = new Array('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Friday', 'Saturday');
+			
+			var DAY28_LENGTH = WEEK_LENGTH / 6;
+			var HOUR_LENGTH = DAY28_LENGTH / 28;
+			var MINUTE_LENGTH = HOUR_LENGTH / 60;
+			var SECOND_LENGTH = MINUTE_LENGTH / 60;
+			
+			function is_sleeping(hour, minute) {
+				return (hour >= 27) || (hour < 8) || (hour == 8 && minute <= 20);
+			}
+			
+			function display_time() {
+				var now = new Date();
+				var unix_time = now.getTime();
+				var week_time = (unix_time + WEEK_OFFSET) % WEEK_LENGTH;
+				
+				// calculate 28 hour time
+				var twoeight_day = DAYS28[Math.floor(week_time / DAY28_LENGTH)];
+				var twoeight_hour = Math.floor(week_time / HOUR_LENGTH) % 28;
+				var twoeight_minute = Math.floor(week_time / MINUTE_LENGTH) % 60;
+				var twoeight_second = Math.floor(week_time / SECOND_LENGTH) % 60;
+				
+				$('#28time').text(sprintf('%s, %02d:%02d:%02d', twoeight_day, twoeight_hour, twoeight_minute, twoeight_second));				
+				
+				// calculate 24-hour pseudotime
+				var twofour_hour = ((((week_time / HOUR_LENGTH) % 28) / 28) * 24);
+				var twofour_minute = (twofour_hour * 60) % 60;
+				var twofour_second = (twofour_minute * 60) % 60;
+				
+				twofour_hour = Math.floor(twofour_hour);
+				twofour_minute = Math.floor(twofour_minute);
+				twofour_second = Math.floor(twofour_second);
+				
+				$('#24time').text(sprintf('%s, %02d:%02d:%02d', twoeight_day, twofour_hour, twofour_minute, twofour_second));
+				
+				// calculate as percentage
+				percent = ((week_time / DAY28_LENGTH) * 100) % 100;
+				
+				$('#percent').text(sprintf('%s, %.2f%%', twoeight_day, percent));
+				
+				$('#status').text(is_sleeping(twoeight_hour, twoeight_minute)?'SLEEPING':'AWAKE');
+			}
+			
+			function refresh_loop() {
+				display_time();
+				setTimeout('refresh_loop()', 1000);
+			}
+			
+			$(refresh_loop);
+		
+		</script>
+		
+		<style type="text/css">
+			span {
+				font-family: monospace;
+				font-weight: bold;
+			}
+			
+			body {
+				background-color: black;
+				color: white;
+				font-family: sans-serif;
+			}
+		</style>
+	</head>
+	
+	<body>
+		<h1>micolous' body clock calculator</h1>
+		
+		<p>This tool calculates where micolous' body clock should be on a 28-hour cycle.</p>
+
+		<ul>
+			<li>In 28-hour format: <span id="28time"></span></li>
+			<li>In 24-hour pseudoformat: <span id="24time"></span></li>
+			<li>As percentage: <span id="percent"></span></li>
+			<li>Current status: <span id="status"></span></li>
+		</ul>
+		
+		<h2>Reference stuff</h2>
+		<ul>
+			<li>Days run for 28 hours, 6 days a week.  This lines up with 24/7.  There is no Thursday.</li>
+			<li>Waking hours in this are from 08:20 - 27:00, totalling 18.6 hours.</li>
+			<li>Sleeping hours in this are from 27:00 - 08:20, totalling 9.3 hours.</li>
+			<li>Monday waking time starts Sunday 20:20 local time.</li>
+			<li>The 24-hour format is "fake", so it runs slower.</li>
+		</ul>
+	</body>
+</html>
+
