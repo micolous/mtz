@@ -18,9 +18,14 @@
 			// this is a number between 0 and 604800000.
 			var WEEK_OFFSET = 437400000;
 			
+			// local timezone offset from utc (in minutes)
+			// 570 = UTC+9.5hr
+			var TIMEZONE = 570;
+			
 			// days of the week in 28-hour weeks.
 			// "I could never get the hang of Thursdays."
-			var DAYS28 = new Array('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Friday', 'Saturday');
+			var DAYS28 = new Array('Sun', 'Mon', 'Tue', 'Wed', 'Fri', 'Sat');
+			var DAYS24 = new Array('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
 			
 			var DAY28_LENGTH = WEEK_LENGTH / 6;
 			var HOUR_LENGTH = DAY28_LENGTH / 28;
@@ -61,6 +66,21 @@
 				$('#percent').text(sprintf('%s, %.2f%%', twoeight_day, percent));
 				
 				$('#status').text(is_sleeping(twoeight_hour, twoeight_minute)?'SLEEPING':'AWAKE');
+				
+				// draw a dynamic needle on the canvas indicating current time.
+				var c = $('#gfx')[0];
+				var ctx = c.getContext('2d');
+				
+				// restore and re-save the context to clear changes.
+				ctx.restore();
+				ctx.save();
+				
+				// now draw needles.
+				ctx.strokeStyle = '#ff0 1px solid';
+				ctx.beginPath();
+				ctx.moveTo(30, 10);
+				ctx.lineTo(30, 180);
+				ctx.stroke();
 			}
 			
 			function refresh_loop() {
@@ -68,7 +88,130 @@
 				setTimeout('refresh_loop()', 1000);
 			}
 			
-			$(refresh_loop);
+			function draw_24day(ctx, offx, offy, day) {
+				ctx.font = '16px sans-serif';
+
+				// create night and day blocks
+				ctx.fillStyle = '#acf';
+				ctx.fillRect(offx, offy+20, 52, 40);
+				
+				ctx.fillStyle = '#444';
+				ctx.fillRect(offx+52, offy+20, 44, 40);
+				
+				// hour tick marks
+				// day
+				ctx.strokeStyle = '#000';
+				for (var i=0; i<14; i++) {
+					ctx.beginPath();
+					ctx.moveTo(offx+(4*i), offy+20);
+					ctx.lineTo(offx+(4*i), offy+25);
+					ctx.stroke();
+				}
+				
+				// night
+				ctx.strokeStyle = '#fff';
+				for (var i=14; i<24; i++) {
+					ctx.beginPath();
+					ctx.moveTo(offx+(4*i), offy+20);
+					ctx.lineTo(offx+(4*i), offy+25);
+					ctx.stroke();
+				}
+				
+				// mark the midnight point
+				ctx.strokeStyle = '#f00';
+				ctx.beginPath();
+				ctx.moveTo(offx+(4*17), offy+18);
+				ctx.lineTo(offx+(4*17), offy+62);
+				ctx.stroke();
+				
+				// label the night and day blocks
+				ctx.fillStyle = '#000';
+				ctx.fillText('day', offx+3, offy+47);
+
+				ctx.fillStyle = '#fff';
+				ctx.fillText('ngt', offx+55, offy+47);				
+				
+				// label the day
+				ctx.fillText(day, offx+3, offy+16);
+			}
+			
+			function draw_28day(ctx, offx, offy, day) {
+				ctx.font = '16px sans-serif';
+
+				// create night and day blocks
+				ctx.fillStyle = '#afc';
+				ctx.fillRect(offx+(4/3), offy+20, 72+(8/3), 40);
+				
+				ctx.fillStyle = '#222';
+				ctx.fillRect(offx+72+(8/3), offy+20, 40+(4/3), 40);
+				
+				// hour tick marks
+				// day
+				ctx.strokeStyle = '#000';
+				for (var i=1; i<19; i++) {
+					ctx.beginPath();
+					ctx.moveTo(offx+(4*i), offy+20);
+					ctx.lineTo(offx+(4*i), offy+25);
+					ctx.stroke();
+				}
+				
+				// night
+				ctx.strokeStyle = '#fff';
+				ctx.beginPath();
+				ctx.moveTo(offx, offy+20);
+				ctx.lineTo(offx, offy+25);
+				ctx.stroke();
+					
+				for (var i=19; i<28; i++) {
+					ctx.beginPath();
+					ctx.moveTo(offx+(4*i), offy+20);
+					ctx.lineTo(offx+(4*i), offy+25);
+					ctx.stroke();
+				}
+				
+				// label the night and day blocks
+				ctx.fillStyle = '#000';
+				ctx.fillText('awake', offx+3, offy+47);
+
+				ctx.fillStyle = '#fff';
+				ctx.fillText('zzz', offx+((2/3)*112)+3, offy+47);				
+				
+				// label the day
+				ctx.fillText(day, offx+3, offy+16);
+			
+			}
+			
+			function canvas_init() {
+				var c = $('#gfx')[0];
+				var ctx = c.getContext('2d');
+				
+				for (var i=0; i<7; i++) {
+					draw_24day(ctx, 10+(i*96), 10, DAYS24[i]);
+				}
+				
+				// work out the x-offset of that week offset
+				var ofrac = ((WEEK_OFFSET - (TIMEZONE * 60000))/ WEEK_LENGTH) - (4/7);
+				if (ofrac < 0) ofrac += 1;
+				var x28 = (ofrac) * -672;
+				
+				// draw the days first time
+				for (var i=0; i<6; i++) {
+					draw_28day(ctx, x28 + 10+(i*112), 70, DAYS28[i]);
+				}
+				
+				// draw it again for the next week
+				for (var i=0; i<6; i++) {
+					draw_28day(ctx, x28 + 682+(i*112), 70, DAYS28[i]);
+				}
+				
+				// save the canvas
+				ctx.save();
+			}
+			
+			$(function() {
+				canvas_init();
+				refresh_loop();
+			});
 		
 		</script>
 		
@@ -93,6 +236,10 @@
 				color: white;
 				font-weight: bold;
 			}
+			
+			canvas {
+				border: 1px #fff solid;
+			}
 		</style>
 	</head>
 	
@@ -107,6 +254,9 @@
 			<li>As percentage: <span id="percent"></span></li>
 			<li>Current status: <span id="status"></span></li>
 		</ul>
+		
+		<h2>Graphics</h2>
+		<canvas width="700" height="200" id="gfx">y no canvas?</canvas>
 		
 		<h2>Reference stuff</h2>
 		<ul>
